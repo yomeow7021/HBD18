@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>你收到了一封信</title>
+    <style>
+        :root {
+            --paper: #fdfaf3;
+            --ink: #3a2718;
+            --envelope-light: #e8d5b0;
+            --envelope-dark: #c9a87c;
+            --seal-red: #a04040;
+            --bg-dark: #3c2e25;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(ellipse at center, #6a5444 0%, #3e3024 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "FangSong", "仿宋", "STFangsong", serif;
+            overflow-x: hidden;
+            padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.06'/%3E%3C/svg%3E");
+            z-index: 0;
+        }
+
+        .scene {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 520px;
+        }
+
+        /* 初始通知 */
+        .intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 20, 15, 0.7);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            cursor: pointer;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+        }
+
+        .intro-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .intro-card {
+            background: linear-gradient(160deg, #fef5e7 0%, #f3e4cc 100%);
+            border: 3px solid #8b6b4a;
+            border-radius: 2px;
+            padding: 35px 28px;
+            text-align: center;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5);
+            max-width: 280px;
+            width: 85%;
+            animation: float 2.5s infinite alternate ease-in-out;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-8px); }
+        }
+
+        .intro-icon {
+            font-size: 55px;
+            display: block;
+            margin-bottom: 12px;
+            color: #8b4a4a;
+        }
+
+        .intro-text {
+            font-size: 1.8rem;
+            color: #4a2c1a;
+            letter-spacing: 4px;
+            font-weight: bold;
+            font-family: "FangSong", "仿宋", serif;
+        }
+
+        .intro-sub {
+            font-size: 0.95rem;
+            color: #7a5a3a;
+            letter-spacing: 2px;
+            margin-top: 12px;
+            font-family: "FangSong", "仿宋", serif;
+        }
+
+        /* 信封 - 可重复开关 */
+        .envelope-wrapper {
+            position: relative;
+            width: 290px;
+            height: 210px;
+            cursor: pointer;
+            transition: opacity 0.6s ease, transform 0.5s ease;
+            opacity: 0;
+            transform: scale(0.85);
+            pointer-events: none;
+            padding: 20px;
+            margin: -20px;
+        }
+
+        .envelope-wrapper.show {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+            transition: opacity 0.5s ease 0.2s, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s;
+        }
+
+        .envelope-wrapper.fading {
+            opacity: 0.3;
+            transition: opacity 0.7s ease 0.3s;
+        }
+
+        .envelope-body {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 75%;
+            background: linear-gradient(180deg, #e8d5b0 0%, #c9a87c 100%);
+            border-radius: 3px 3px 6px 6px;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+            z-index: 2;
+            border: 1px solid #a08060;
+        }
+
+        .envelope-flap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 48%;
+            z-index: 4;
+            transform-origin: top center;
+            transition: transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+
+        .envelope-flap-inner {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #f0dfc0 0%, #d4b080 100%);
+            clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .seal {
+            position: absolute;
+            bottom: -16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 38px;
+            height: 38px;
+            background: radial-gradient(circle at 35% 30%, #c05050, #7a2020);
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            z-index: 5;
+            border: 2px solid #6b1a1a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f0d080;
+            font-size: 14px;
+            transition: transform 0.6s ease, opacity 0.5s;
+        }
+
+        .seal::after {
+            content: "启";
+            font-size: 15px;
+            color: #f5e0a0;
+        }
+
+        .envelope-wrapper.opened .envelope-flap {
+            transform: rotateX(-180deg);
+        }
+
+        .envelope-wrapper.opened .seal {
+            opacity: 0.5;
+            transform: translateX(-50%) scale(0.75);
+        }
+
+        /* 信纸 - 加宽、提亮、仿宋字体 */
+        .letter-folded {
+            position: absolute;
+            top: 18px;
+            left: 20px;
+            width: calc(100% - 40px);
+            height: 80px;
+            background: #fdfaf3;
+            border-radius: 2px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+            z-index: 3;
+            cursor: pointer;
+            padding: 12px 14px;
+            border: 1px solid #e0d2b8;
+            overflow: hidden;
+            transition: all 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+            color: #3a2718;
+            font-size: 1rem;
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            font-family: "FangSong", "仿宋", "STFangsong", serif;
+        }
+
+        .letter-folded .preview-line {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .letter-folded .click-hint {
+            font-size: 0.8rem;
+            color: #8a6a4a;
+            text-align: center;
+            margin-top: 6px;
+            letter-spacing: 2px;
+        }
+
+        .letter-folded .full-content {
+            display: none;
+        }
+
+        .envelope-wrapper.opened .letter-folded {
+            top: -90px;
+            left: 8px;
+            width: calc(100% - 16px);
+            height: 78px;
+            z-index: 10;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
+            transition: all 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) 0.3s;
+        }
+
+        .letter-folded.expanded {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: 96% !important;
+            max-width: 580px !important;
+            height: auto !important;
+            max-height: 88vh !important;
+            min-height: 220px !important;
+            z-index: 50 !important;
+            padding: 36px 30px !important;
+            border-radius: 4px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            background: #fefcf7 !important;
+            overflow-y: auto !important;
+            line-height: 2.1;
+            font-size: 1.12rem;
+            border: 1px solid #d8c4a4;
+            transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .letter-folded.expanded .preview-line,
+        .letter-folded.expanded .click-hint {
+            display: none;
+        }
+
+        .letter-folded.expanded .full-content {
+            display: block;
+            color: #332214;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 2.1;
+            font-size: 1.08rem;
+            font-family: "FangSong", "仿宋", "STFangsong", serif;
+        }
+
+        .close-btn {
+            position: sticky;
+            top: 0;
+            float: right;
+            background: rgba(253, 250, 243, 0.95);
+            border: 1px solid #a08060;
+            color: #5b3a1a;
+            font-size: 1rem;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 55;
+            transition: all 0.3s;
+            line-height: 30px;
+            text-align: center;
+            margin-bottom: 10px;
+            font-family: "FangSong", "仿宋", serif;
+        }
+        .close-btn:hover {
+            background: #8b6b4a;
+            color: #fdfaf3;
+        }
+
+        @media (max-width: 500px) {
+            .envelope-wrapper {
+                width: 260px;
+                height: 190px;
+            }
+            .letter-folded {
+                top: 15px;
+                left: 16px;
+                width: calc(100% - 32px);
+                height: 70px;
+                font-size: 0.95rem;
+            }
+            .envelope-wrapper.opened .letter-folded {
+                top: -75px;
+                left: 6px;
+                width: calc(100% - 12px);
+            }
+            .letter-folded.expanded {
+                width: 97% !important;
+                max-width: 97% !important;
+                padding: 26px 20px !important;
+                font-size: 1.02rem;
+            }
+            .intro-text {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="intro-overlay" id="introOverlay">
+        <div class="intro-card">
+            <span class="intro-icon">✉️</span>
+            <div class="intro-text">你收到了一封信</div>
+            <div class="intro-sub">轻触开启</div>
+        </div>
+    </div>
+
+    <div class="scene">
+        <div class="envelope-wrapper" id="envelopeWrapper">
+            <div class="envelope-body"></div>
+            <div class="envelope-flap">
+                <div class="envelope-flap-inner"></div>
+            </div>
+            <div class="seal"></div>
+            <div class="letter-folded" id="letterFolded">
+                <div class="preview-line">To：141智性恋天菜 …</div>
+                <div class="click-hint">📜 轻点信纸展开</div>
+                <div class="full-content" id="fullContent">
+                    <button class="close-btn" id="closeBtn">✕</button>
+                    <p><strong>To：141智性恋天菜</strong></p>
+                    <p>　　近18年的友情，你几乎陪伴我走过了每个阶段，我的语言太过贫瘠，可感情却太重太浓，说不出那些优美有深意的话语，只能用文字记录我们之间的碎片点滴。</p>
+                    <p>　　从我记事起，你在我的生活中便是不可或缺的存在。世界之大，你我相遇，陪伴彼此度过天真烂漫的童年，如今又共同经历热血的青春。每当我回忆起童年，无数与你有关的回忆便涌入脑海，小时候，我们玩着玩着就要吵了起来，扮演老师相互教课留作业，推着对方坐着扭扭车在门口转一圈又一圈，拿粉笔在地上画跳格子找最完美的石头当投掷物，拉着小虎摘花挖土舀水搜寻材料当平谷第一厨神，坐在小小的桌子边写各自的作业……那段时间我们彼此珍惜真心相待，每天无忧无虑幸福开心，感谢我们的相遇、感谢你，让我有了如此最宝贵的回忆。</p>
+                    <p>　　不知从何时起，你在我心头的分量越来越重了，多年前幼稚的我吃过你身边许多人的醋，怕我在你心里的位子被替代，还记得初二那年的大雨，看到你说和朋友在操场有了多么美好的青春回忆，其实我心中有那么些许酸涩，我也想和你在一个学校，有共同的校园回忆。后来我也想和你考到一个学校，但是我在学习这方面好像没那么开窍，这个愿望可能没法实现了。你一定会去顶好的学校的，希望我们还可以在一个城市。</p>
+                    <p>　　十六年过去，你我早已变成彼此家人般的存在，彼此无话不谈，我们聊八卦，身边和谁又闹矛盾了谁和谁又好上了；我们聊趣事，在哪里摔了个跟头、办了有趣的活动；我们聊学习，成绩下降时内心的压力又或取得小成就时的骄傲；我们聊美食，给彼此推荐好喝的饮品、餐厅…久而久之，不论遇到什么开心事亦或是困难，心中第一个想到的人也绝对是彼此。在遇到开心事时，可以毫无顾忌的分享给对方，不怕被误解被嫌弃，彼此共享快乐；在遇到困难时，可以卸下伪装展现给对方脆弱的一面，因为对方永远站在自己这边，并给予暖心的安慰、客观冷静的建议和实实在在的帮助。你是我可以依赖的对象、可以倾诉的树洞、万能的智慧锦囊、放大快乐的神奇魔法。</p>
+                    <p>　　你永远是最漂亮、最善良、最聪明、最可靠最独一无二的人。不论是给我发来的偶然发现的儿时老照片、时不时分享的校园生活近照中你线上的可爱和清纯，还是每每出去旅游、闲逛时你线下所表现给我的自信和活力无限，无一不让我喜欢上你的美，你总是那么爱笑又笑的那么灿烂，就算隔着屏幕也能感受到一阵温暖和治愈。不止如此，在每一次你向我表达对事物的看法、对事情的理解，都让我感受到你内心的温暖与强大，我欣赏你的每一个看法、认同你的每一个理解。遇到困难时，只要你在，我就不慌了，就像我心中的定海神针一般，是我万能的参考书也是最管用的镇定剂。虽然你性子偶尔有点急，但是你心中的善意和温暖始终不变。还记得你之前和你奶奶闹的小别扭，尽管是关心但说出口却有些变了味，你于是有些自责，又想着怎么温和地向奶奶解释自己的想法。你对生活也充满了热情与探索，当dm、学跳舞，学吉他…并且凭借极强的执行力去接触。你身上那股自信的劲也让我无比欣赏，在舞台上唱歌、表演，大胆地表达自己的想法，这些在我心中向往但很难迈出第一步的事在你面前似乎十分轻松，在你身边我似乎也变得很开心更自信了许多。</p>
+                    <p>　　上高三之后忙碌又枯燥的日子里，我开始更频繁的想起我们之间的回忆，想到养马岛粉橙落日余晖下我拉着你的手你那明媚的回眸、想到厦门地下小剧场我们互相拉黄包车轻松而放肆地大笑、想到沙溪古镇悠闲地散步和你自信松弛地在广场唱动人的歌，想到涠洲岛夜晚海边我们一起抬头看盛大的烟花…（当然想着想着还是有些抱歉的，每次旅途都有时因为犯懒＋体质差没有和你走完全程，我将改进，）</p>
+                    <p>　　同时，我也在畅想未来。或许明年我们会在异国他乡的街头、在山川湖泊草地之间、又或是江南烟雨的古镇。再以后我们会不会再携手走到更远很美的地方呢？我希望会的。会在各地留下我们的足迹，记录下彼此每个年龄最美的样子。</p>
+                    <p>　　说起来有些肉麻，生命这场旅程，有你陪在身边，真好，你是天底下最最最最好的朋友！<br>　　很高兴认识你*10000</p>
+                    <p style="text-align: right; margin-top: 20px;">Aaaaaaaaa打伞姐1.27</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 点击开启弹窗 → 显示信封（仅首次）
+        document.getElementById('introOverlay').onclick = function() {
+            this.classList.add('hidden');
+            setTimeout(() => document.getElementById('envelopeWrapper').classList.add('show'), 300);
+        };
+
+        // 信封：**无限开关**，点一次开、再点一次关
+        const env = document.getElementById('envelopeWrapper');
+        env.onclick = function() {
+            this.classList.toggle('opened');
+            if(this.classList.contains('opened')){
+                setTimeout(()=>this.classList.add('fading'),700);
+            }else{
+                this.classList.remove('fading');
+                document.getElementById('letterFolded').classList.remove('expanded');
+            }
+        };
+
+        // 信纸：**无限展开/收起**
+        const letter = document.getElementById('letterFolded');
+        letter.onclick = function(e) {
+            e.stopPropagation();
+            letter.classList.toggle('expanded');
+        };
+
+        // 关闭按钮
+        document.getElementById('closeBtn').onclick = function(e) {
+            e.stopPropagation();
+            letter.classList.remove('expanded');
+        };
+
+        // 点击信纸外部关闭
+        document.onclick = function(e) {
+            if(letter.classList.contains('expanded') && !letter.contains(e.target)){
+                letter.classList.remove('expanded');
+            }
+        };
+    </script>
+</body>
+</html>
